@@ -2,10 +2,18 @@
 
 author=233boy
 
+# bash fonts colors
 red='\e[31m'
 yellow='\e[33m'
 green='\e[92m'
+blue='\e[94m'
+cyan='\e[96m'
 none='\e[0m'
+_red() { echo -e ${red}$@${none}; }
+_blue() { echo -e ${blue}$@${none}; }
+_cyan() { echo -e ${cyan}$@${none}; }
+_green() { echo -e ${green}$@${none}; }
+_yellow() { echo -e ${yellow}$@${none}; }
 _red_bg() { echo -e "\e[41m$@${none}"; }
 
 is_err=$(_red_bg 错误!)
@@ -40,6 +48,7 @@ is_sh_dir=$is_core_dir/sh
 is_sh_repo=$author/$is_core
 is_pkg="wget tar bash"
 [[ $cmd =~ apk ]] && is_pkg="$is_pkg gcompat jq"
+is_config_json=$is_core_dir/config.json
 
 tmpdir=$(mktemp -u) || tmpdir=/tmp/tmp-$RANDOM
 mkdir -p $tmpdir
@@ -57,7 +66,6 @@ msg() {
     echo -e "${color}$(date +'%T')${none}) ${2}"
 }
 
-# 关键修复：恢复原版脚本的 load 函数，用于加载核心子脚本
 load() {
     . $is_sh_dir/src/$1
 }
@@ -66,7 +74,6 @@ load() {
 optimize_system() {
     msg warn "配置 512M Swap 及清理磁盘空间..."
     
-    # 1. 挂载 Swap 防止 OOM
     if [[ $(free -m | awk '/Swap:/ {print $2}') -eq 0 ]]; then
         fallocate -l 512M /swapfile &>/dev/null
         chmod 600 /swapfile
@@ -76,7 +83,6 @@ optimize_system() {
     fi
     sysctl -w vm.swappiness=60 &>/dev/null
 
-    # 2. 清理系统包管理器缓存以节省 1GB 磁盘
     if [[ $cmd =~ apt-get ]]; then
         apt-get clean &>/dev/null
         apt-get autoremove -y &>/dev/null
@@ -87,7 +93,6 @@ optimize_system() {
     fi
 }
 
-# 安装精简依赖
 install_pkg() {
     msg warn "安装必要依赖..."
     if [[ $cmd =~ apk ]]; then
@@ -99,7 +104,6 @@ install_pkg() {
     fi
 }
 
-# 下载核心文件
 download_files() {
     is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest" | grep tag_name | grep -E -o 'v([0-9.]+)')
     [[ ! $is_core_ver ]] && is_core_ver="v1.8.13"
@@ -114,11 +118,10 @@ download_files() {
     [[ ! $(type -P jq) ]] && _wget -q $jq_link -O /usr/bin/jq && chmod +x /usr/bin/jq
 }
 
-# 优化 Systemd 服务文件：极限压榨内存
 optimize_systemd_service() {
     local service_file="/etc/systemd/system/$is_core.service"
     if [[ -f $service_file ]]; then
-        # 写入极严苛的内存限制和垃圾回收参数，同时关闭标准输出防止写爆 1GB 硬盘
+        # 写入极严苛的内存限制，关闭标准输出防止写爆 1GB 硬盘
         sed -i '/\[Service\]/a Environment="GOMEMLIMIT=24MiB"\nEnvironment="GOGC=15"\nMemoryMax=36M\nMemoryHigh=30M\nStandardOutput=null\nStandardError=null' "$service_file"
         systemctl daemon-reload
         systemctl restart $is_core
@@ -127,7 +130,7 @@ optimize_systemd_service() {
 
 main() {
     clear
-    echo "........... sing-box 64M/1G 极限精简版 (修复版) .........."
+    echo "........... sing-box 64M/1G 极致精简版 (VLESS-Reality) .........."
     
     optimize_system
     install_pkg
@@ -143,27 +146,22 @@ main() {
 
     echo "alias sb=$is_sh_bin" >>/root/.bashrc
 
-    # 1. 加载并安装 systemd 服务
     load systemd.sh
     is_new_install=1
     install_service $is_core &>/dev/null
 
-    # 2. 加载 core.sh 脚本库并生成默认轻量协议配置
-    load core.sh
-    if type -t add_shadowsocks &>/dev/null; then
-        add_shadowsocks
-    else
-        add shadowsocks
-    fi
+    mkdir -p $is_conf_dir
 
-    # 3. 注入极限内存限制及完全关闭日志写入磁盘
+    # 加载 core.sh 并默认生成 VLESS-Reality 协议
+    load core.sh
+    add reality
+
     optimize_systemd_service
 
-    # 清理所有临时文件，释放 1GB 盘空间
     rm -rf $tmpdir
     if [[ $cmd =~ apt-get ]]; then apt-get clean &>/dev/null; fi
 
-    msg ok "安装完成！内存与硬盘已极限优化并成功启动。"
+    msg ok "安装完成！已默认配置 VLESS-Reality，内存与硬盘已优化。"
     exit 0
 }
 
