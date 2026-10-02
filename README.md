@@ -29,7 +29,7 @@
 使用以下命令直接开始安装（请将链接替换为你自己的脚本托管地址，或直接运行你优化后的 `install.sh`）：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/你的用户名/仓库名/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/kkkbox/sing-box/main/install.sh)
 
 ```
 
