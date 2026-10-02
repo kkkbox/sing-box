@@ -1,8 +1,5 @@
-这里为你量身定制了一份用于该精简版项目的 `README.md` 介绍文档。你可以直接复制并在 GitHub 仓库或本地项目中使用：
 
----
-
-# 🚀 Sing-Box 64M 内存 & 1GB 硬盘极限优化版
+# 🚀 Sing-Box 64M 内存 极限优化版
 
 > 基于 [233boy/sing-box](https://github.com/233boy/sing-box) 项目进行深度定制与精简，专为**极低配置 VPS（64MB 内存 / 1GB 硬盘）**打造的轻量化科学上网部署方案。
 
