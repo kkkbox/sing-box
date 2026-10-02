@@ -57,6 +57,11 @@ msg() {
     echo -e "${color}$(date +'%T')${none}) ${2}"
 }
 
+# 关键修复：恢复原版脚本的 load 函数，用于加载核心子脚本
+load() {
+    . $is_sh_dir/src/$1
+}
+
 # 极致 64M 内存 + 1GB 硬盘优化
 optimize_system() {
     msg warn "配置 512M Swap 及清理磁盘空间..."
@@ -97,7 +102,7 @@ install_pkg() {
 # 下载核心文件
 download_files() {
     is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest" | grep tag_name | grep -E -o 'v([0-9.]+)')
-    [[ ! $is_core_ver ]] && is_core_ver="v1.8.13" # 兜底版本
+    [[ ! $is_core_ver ]] && is_core_ver="v1.8.13"
     
     core_link="https://github.com/${is_core_repo}/releases/download/${is_core_ver}/${is_core}-${is_core_ver:1}-linux-${is_arch}.tar.gz"
     sh_link="https://github.com/${is_sh_repo}/releases/latest/download/code.tar.gz"
@@ -113,15 +118,16 @@ download_files() {
 optimize_systemd_service() {
     local service_file="/etc/systemd/system/$is_core.service"
     if [[ -f $service_file ]]; then
-        # 写入极严苛的内存限制和垃圾回收参数
+        # 写入极严苛的内存限制和垃圾回收参数，同时关闭标准输出防止写爆 1GB 硬盘
         sed -i '/\[Service\]/a Environment="GOMEMLIMIT=24MiB"\nEnvironment="GOGC=15"\nMemoryMax=36M\nMemoryHigh=30M\nStandardOutput=null\nStandardError=null' "$service_file"
         systemctl daemon-reload
+        systemctl restart $is_core
     fi
 }
 
 main() {
     clear
-    echo "........... sing-box 64M/1G 极限精简版 .........."
+    echo "........... sing-box 64M/1G 极限精简版 (修复版) .........."
     
     optimize_system
     install_pkg
@@ -137,10 +143,12 @@ main() {
 
     echo "alias sb=$is_sh_bin" >>/root/.bashrc
 
+    # 1. 加载并安装 systemd 服务
     load systemd.sh
+    is_new_install=1
     install_service $is_core &>/dev/null
 
-    # 默认调用最省资源的 Shadowsocks 协议
+    # 2. 加载 core.sh 脚本库并生成默认轻量协议配置
     load core.sh
     if type -t add_shadowsocks &>/dev/null; then
         add_shadowsocks
@@ -148,16 +156,14 @@ main() {
         add shadowsocks
     fi
 
-    # 注入极限内存限制及完全关闭日志写入磁盘
+    # 3. 注入极限内存限制及完全关闭日志写入磁盘
     optimize_systemd_service
 
     # 清理所有临时文件，释放 1GB 盘空间
     rm -rf $tmpdir
-    
-    # 再次清理系统垃圾
     if [[ $cmd =~ apt-get ]]; then apt-get clean &>/dev/null; fi
 
-    msg ok "安装完成！内存与硬盘已极限优化。"
+    msg ok "安装完成！内存与硬盘已极限优化并成功启动。"
     exit 0
 }
 
